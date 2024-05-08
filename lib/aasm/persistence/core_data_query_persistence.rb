@@ -20,13 +20,15 @@ module AASM
       end
 
       module ClassMethods
-        def aasm_create_scope(state_machine_name, scope_name)
-          scope(scope_name.to_sym, lambda { where(aasm(state_machine_name).attribute_name.to_sym).eq(scope_name.to_s) })
+        def aasm_create_scope(state_machine_name, scope_name, state_name)
+          scope(
+            scope_name.to_sym,
+            lambda { where(aasm(state_machine_name).attribute_name.to_sym).eq(state_name.to_s) },
+          )
         end
       end
 
       module InstanceMethods
-
         # Writes <tt>state</tt> to the state column and persists it to the database
         # using update_attribute (which bypasses validation)
         #
@@ -37,8 +39,8 @@ module AASM
         #   Foo.find(1).aasm.current_state # => :closed
         #
         # NOTE: intended to be called from an event
-        def aasm_write_state(state, name=:default)
-          raise "Cowardly refusing to save the current CoreDataQuery context"
+        def aasm_write_state(state, name = :default)
+          raise 'Cowardly refusing to save the current CoreDataQuery context'
           aasm_write_state_without_persistence(state, name)
         end
 
@@ -54,11 +56,11 @@ module AASM
         #   Foo.find(1).aasm.current_state # => :closed
         #
         # NOTE: intended to be called from an event
-        def aasm_write_state_without_persistence(state, name=:default)
+        def aasm_write_state_without_persistence(state, name = :default)
           write_attribute(self.class.aasm(name).attribute_name, state.to_s)
         end
 
-      private
+        private
 
         # Ensures that if the aasm_state column is nil and the record is new
         # that the initial state gets populated before validation on create
@@ -76,10 +78,19 @@ module AASM
         #   foo.aasm_state # => nil
         #
         def aasm_ensure_initial_state
-          AASM::StateMachineStore.fetch(self.class, true).machine_names.each do |state_machine_name|
-            next if !send(self.class.aasm(state_machine_name).attribute_name) || send(self.class.aasm(state_machine_name).attribute_name).empty?
-            send("#{self.class.aasm(state_machine_name).attribute_name}=", aasm(state_machine_name).enter_initial_state.to_s)
-          end
+          AASM::StateMachineStore
+            .fetch(self.class, true)
+            .machine_names
+            .each do |state_machine_name|
+              if !send(self.class.aasm(state_machine_name).attribute_name) ||
+                   send(self.class.aasm(state_machine_name).attribute_name).empty?
+                next
+              end
+              send(
+                "#{self.class.aasm(state_machine_name).attribute_name}=",
+                aasm(state_machine_name).enter_initial_state.to_s,
+              )
+            end
         end
       end # InstanceMethods
 
